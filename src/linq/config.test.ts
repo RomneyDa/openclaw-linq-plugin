@@ -14,7 +14,7 @@ describe("LinqConfigSchema", () => {
     expect(parsed.data?.dmPolicy).toBe("open");
   });
 
-  it("rejects unsupported SecretRef sources and extra config knobs", () => {
+  it("rejects unsupported SecretRef sources and unsupported group policies", () => {
     expect(
       LinqConfigSchema.safeParse({
         apiToken: { source: "exec", id: "op read token" },
@@ -22,9 +22,10 @@ describe("LinqConfigSchema", () => {
     ).toBe(false);
     const invalid = LinqConfigSchema.safeParse({
       apiToken: "token",
-      webhookMaxBytes: 2048,
+      groupPolicy: "open",
     });
     expect(invalid.success).toBe(false);
+    expect(invalid.error?.issues.map((issue) => issue.path.join("."))).toContain("groupPolicy");
   });
 });
 

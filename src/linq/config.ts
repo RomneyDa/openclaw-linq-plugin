@@ -19,10 +19,19 @@ export const LinqAccountConfigSchema: z.ZodType<Record<string, unknown>> = z.laz
       // TODO: default to "pairing" once durable Linq pairing setup is supported.
       dmPolicy: z.enum(["pairing", "open", "disabled"]).default("open").optional(),
       allowFrom: z.array(allowFromEntrySchema).optional(),
+      groupPolicy: z.enum(["open", "allowlist", "disabled"]).default("disabled").optional(),
+      groupAllowFrom: z.array(allowFromEntrySchema).optional(),
+      mediaMaxMb: z.number().positive().max(100).default(10).optional(),
+      textChunkLimit: z.number().int().positive().max(8000).default(4000).optional(),
       webhookUrl: z.string().url().optional(),
       webhookSecret: z.union([z.string().min(1), secretRefSchema]).optional(),
       webhookPath: z.string().regex(/^\/[A-Za-z0-9/_-]*$/u).default("/linq-webhook").optional(),
       webhookHost: z.string().min(1).default("0.0.0.0").optional(),
+      webhookMaxBytes: z.number().int().positive().max(10 * 1024 * 1024).optional(),
+      webhookReplayWindowSeconds: z.number().int().positive().max(3600).optional(),
+      webhookDedupeTtlMs: z.number().int().positive().optional(),
+      blockStreaming: z.boolean().optional(),
+      groups: z.record(z.string(), z.unknown()).optional(),
       accounts: z.record(z.string(), LinqAccountConfigSchema).optional(),
       defaultAccount: z.string().min(1).optional(),
     })
@@ -34,6 +43,13 @@ export const LinqAccountConfigSchema: z.ZodType<Record<string, unknown>> = z.laz
           code: z.ZodIssueCode.custom,
           message: "configure only one of apiToken or tokenFile",
           path: ["apiToken"],
+        });
+      }
+      if (value.groupPolicy && value.groupPolicy !== "disabled") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "group support is not enabled in this plugin version",
+          path: ["groupPolicy"],
         });
       }
     }),
@@ -52,10 +68,18 @@ export const LinqConfigJsonSchema = {
     fromPhone: { type: "string", pattern: "^\\+[1-9]\\d{6,14}$" },
     dmPolicy: { enum: ["pairing", "open", "disabled"], default: "open" },
     allowFrom: { type: "array", items: { anyOf: [{ type: "string" }, { type: "number" }] } },
+    groupPolicy: { enum: ["disabled"], default: "disabled" },
+    mediaMaxMb: { type: "number", exclusiveMinimum: 0, maximum: 100, default: 10 },
+    textChunkLimit: { type: "integer", minimum: 1, maximum: 8000, default: 4000 },
     webhookUrl: { type: "string", format: "uri" },
     webhookSecret: { anyOf: [{ type: "string", minLength: 1 }, { $ref: "#/$defs/secretRef" }] },
     webhookPath: { type: "string", pattern: "^/[A-Za-z0-9/_-]*$", default: "/linq-webhook" },
     webhookHost: { type: "string", minLength: 1, default: "0.0.0.0" },
+    webhookMaxBytes: { type: "integer", minimum: 1, maximum: 10485760 },
+    webhookReplayWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
+    webhookDedupeTtlMs: { type: "integer", minimum: 1 },
+    blockStreaming: { type: "boolean" },
+    groups: { type: "object", additionalProperties: true },
     accounts: { type: "object", additionalProperties: true },
     defaultAccount: { type: "string", minLength: 1 },
   },
