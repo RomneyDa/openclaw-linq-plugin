@@ -1,19 +1,19 @@
 import {
   applyAccountNameToChannelSection,
-  buildChannelConfigSchema,
   DEFAULT_ACCOUNT_ID,
   deleteAccountFromConfigSection,
   formatPairingApproveHint,
   getChatChannelMeta,
-  LinqConfigSchema,
+  buildChannelConfigSchema,
   migrateBaseNameToDefaultAccount,
   normalizeAccountId,
   setAccountEnabledInConfigSection,
   type ChannelPlugin,
-  type OpenClawConfig,
-} from "openclaw/plugin-sdk";
+} from "openclaw/plugin-sdk/core";
+import type { OpenClawConfig } from "openclaw/plugin-sdk";
 import type { ResolvedLinqAccount } from "./linq/accounts.js";
 import type { LinqProbe } from "./linq/types.js";
+import { LinqConfigSchema } from "./linq/config.js";
 import {
   listLinqAccountIds,
   resolveDefaultLinqAccountId,
@@ -21,6 +21,7 @@ import {
 } from "./linq/accounts.js";
 import { probeLinq } from "./linq/probe.js";
 import { sendMessageLinq } from "./linq/send.js";
+import { parseLinqTarget } from "./linq/targets.js";
 import { monitorLinqProvider } from "./linq/monitor.js";
 import { linqOnboardingAdapter } from "./onboarding.js";
 import { getLinqRuntime } from "./runtime.js";
@@ -33,14 +34,20 @@ export const linqPlugin: ChannelPlugin<ResolvedLinqAccount, LinqProbe> = {
     ...meta,
     aliases: ["linq-imessage"],
   },
-  onboarding: linqOnboardingAdapter,
+  setupWizard: linqOnboardingAdapter as never,
   pairing: {
     idLabel: "phoneNumber",
-    notifyApproval: async ({ id }) => {},
+    notifyApproval: async ({ id, accountId, cfg }) => {
+      const account = resolveLinqAccount({ cfg, accountId });
+      await sendMessageLinq(`linq:${id}`, "Pairing approved. You can now message this agent.", {
+        account,
+        accountId: account.accountId,
+      });
+    },
   },
   capabilities: {
-    chatTypes: ["direct", "group"],
-    reactions: true,
+    chatTypes: ["direct"],
+    reactions: false,
     media: true,
   },
   reload: { configPrefixes: ["channels.linq"] },
@@ -71,6 +78,7 @@ export const linqPlugin: ChannelPlugin<ResolvedLinqAccount, LinqProbe> = {
       enabled: account.enabled,
       configured: Boolean(account.token?.trim()),
       tokenSource: account.tokenSource,
+      webhookSecretSource: account.webhookSecretSource,
       fromPhone: account.fromPhone,
     }),
     resolveAllowFrom: ({ cfg, accountId }) =>
@@ -98,25 +106,28 @@ export const linqPlugin: ChannelPlugin<ResolvedLinqAccount, LinqProbe> = {
         approveHint: formatPairingApproveHint("linq"),
       };
     },
-    collectWarnings: ({ account }) => {
-      const groupPolicy = account.config.groupPolicy ?? "open";
-      if (groupPolicy !== "open") {
-        return [];
-      }
-      return [
-        `- Linq groups: groupPolicy="open" allows any group member to trigger. Set channels.linq.groupPolicy="allowlist" + channels.linq.groupAllowFrom to restrict senders.`,
-      ];
-    },
-  },
-  groups: {
-    resolveRequireMention: (params) => undefined,
-    resolveToolPolicy: (params) => undefined,
   },
   messaging: {
-    normalizeTarget: (raw) => raw ?? "",
+    normalizeTarget: (raw: string) => {
+      if (!raw) {
+        return "";
+      }
+      try {
+        return parseLinqTarget(raw).raw;
+      } catch {
+        return raw;
+      }
+    },
     targetResolver: {
-      looksLikeId: (id) => /^[A-Za-z0-9_-]+$/.test(id ?? ""),
-      hint: "<chatId>",
+      looksLikeId: (id) => {
+        try {
+          parseLinqTarget(id ?? "");
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      hint: "linq:+15556667777 | linq:chat:<chat_id> | linq:<accountId>:+15556667777",
     },
   },
   setup: {
@@ -241,6 +252,8 @@ export const linqPlugin: ChannelPlugin<ResolvedLinqAccount, LinqProbe> = {
     buildChannelSummary: ({ snapshot }) => ({
       configured: snapshot.configured ?? false,
       tokenSource: snapshot.tokenSource ?? "none",
+      webhookSecretSource:
+        ((snapshot as Record<string, unknown>).webhookSecretSource as string | undefined) ?? "none",
       running: snapshot.running ?? false,
       lastStartAt: snapshot.lastStartAt ?? null,
       lastStopAt: snapshot.lastStopAt ?? null,
@@ -256,6 +269,7 @@ export const linqPlugin: ChannelPlugin<ResolvedLinqAccount, LinqProbe> = {
       enabled: account.enabled,
       configured: Boolean(account.token?.trim()),
       tokenSource: account.tokenSource,
+      webhookSecretSource: account.webhookSecretSource,
       fromPhone: account.fromPhone,
       running: runtime?.running ?? false,
       lastStartAt: runtime?.lastStartAt ?? null,
