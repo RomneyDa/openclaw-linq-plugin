@@ -13,10 +13,6 @@ import { markAsReadLinq, sendMessageLinq, startTypingLinq } from "./send.js";
 import { getLinqRuntime } from "../runtime.js";
 import { createLinqWebhookHandler, createMemoryLinqWebhookDedupeStore } from "./webhook.js";
 
-const LINQ_WEBHOOK_MAX_BYTES = 1024 * 1024;
-const LINQ_WEBHOOK_REPLAY_WINDOW_SECONDS = 300;
-const LINQ_WEBHOOK_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
-
 export type MonitorLinqOpts = {
   accountId?: string;
   config?: OpenClawConfig;
@@ -375,9 +371,9 @@ export async function monitorLinqProvider(opts: MonitorLinqOpts = {}): Promise<v
   const webhookHandler = createLinqWebhookHandler({
     path: webhookPath,
     secret: webhookSecret,
-    maxBytes: LINQ_WEBHOOK_MAX_BYTES,
-    replayWindowSeconds: LINQ_WEBHOOK_REPLAY_WINDOW_SECONDS,
-    dedupeTtlMs: LINQ_WEBHOOK_DEDUPE_TTL_MS,
+    maxBytes: linqCfg.webhookMaxBytes,
+    replayWindowSeconds: linqCfg.webhookReplayWindowSeconds,
+    dedupeTtlMs: linqCfg.webhookDedupeTtlMs,
     dedupeStore: createMemoryLinqWebhookDedupeStore(),
   });
 
@@ -385,7 +381,7 @@ export async function monitorLinqProvider(opts: MonitorLinqOpts = {}): Promise<v
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
     const chunks: Buffer[] = [];
     let size = 0;
-    const maxPayloadBytes = LINQ_WEBHOOK_MAX_BYTES;
+    const maxPayloadBytes = linqCfg.webhookMaxBytes ?? 1024 * 1024;
     for await (const chunk of req) {
       size += (chunk as Buffer).length;
       if (size > maxPayloadBytes) {

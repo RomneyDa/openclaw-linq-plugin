@@ -107,6 +107,12 @@ export type LinqAccountConfig = {
   webhookPath?: string;
   /** Local HTTP host to bind the webhook listener on. */
   webhookHost?: string;
+  /** Max webhook request body size in bytes. */
+  webhookMaxBytes?: number;
+  /** Signature timestamp replay window in seconds. */
+  webhookReplayWindowSeconds?: number;
+  /** Dedupe TTL for Linq event_id values. */
+  webhookDedupeTtlMs?: number;
   /** History limit for group chats. */
   historyLimit?: number;
   /** Block streaming responses. */

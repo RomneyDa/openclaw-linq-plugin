@@ -17,6 +17,9 @@
         "type": "array",
         "items": { "anyOf": [{ "type": "string" }, { "type": "number" }] }
       },
+      "groupPolicy": { "enum": ["disabled"], "default": "disabled" },
+      "mediaMaxMb": { "type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 10 },
+      "textChunkLimit": { "type": "integer", "minimum": 1, "maximum": 8000, "default": 4000 },
       "webhookUrl": { "type": "string", "format": "uri" },
       "webhookSecret": {
         "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/secretRef" }]
@@ -27,6 +30,11 @@
         "default": "/linq-webhook"
       },
       "webhookHost": { "type": "string", "minLength": 1, "default": "0.0.0.0" },
+      "webhookMaxBytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+      "webhookReplayWindowSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+      "webhookDedupeTtlMs": { "type": "integer", "minimum": 1 },
+      "blockStreaming": { "type": "boolean" },
+      "groups": { "type": "object", "additionalProperties": true },
       "accounts": { "type": "object", "additionalProperties": true },
       "defaultAccount": { "type": "string", "minLength": 1 }
     },
