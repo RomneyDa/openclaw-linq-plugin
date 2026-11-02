@@ -4,7 +4,7 @@ An external [OpenClaw](https://github.com/openclaw/openclaw) channel using the [
 
 ## Requirements and installation
 
-Targets **OpenClaw 2026.10.3 or newer**, verified against the published 2026.10.3 package. Newer hosts must preserve that public plugin API. Use a Node version supported by your host (verification used Node 24).
+Targets **OpenClaw 2026.10.9 or newer**. Development checks use the published 2026.10.9 package. Newer hosts must preserve that public plugin API. Use a Node version supported by your host.
 
 The package name/version is not a claim of an npm or ClawHub release. Until a maintainer publishes a reviewed release, build and inspect the package from a reviewed checkout in an isolated development environment:
 
@@ -83,7 +83,7 @@ Targets: `linq:+15555550102`, `linq:chat:<chat_id>`, `linq:<accountId>:+15555550
 | Feature                                  | Support                                                           |
 | ---------------------------------------- | ----------------------------------------------------------------- |
 | Direct text                              | Incoming/outgoing; iMessage/RCS/SMS selection is Linq’s           |
-| Incoming media                           | URLs and MIME types passed to host ingestion                      |
+| Incoming media                           | Authorized HTTPS media staged in the host store for agent input                      |
 | Outgoing media                           | HTTPS URLs or host-authorized local files                         |
 | Local media upload                       | Linq attachment negotiation and guarded upload; 100 MiB local cap |
 | Quoted replies                           | Provider message-id references                                    |
@@ -94,7 +94,7 @@ Targets: `linq:+15555550102`, `linq:chat:<chat_id>`, `linq:<accountId>:+15555550
 | Groups, reactions, edit, unsend          | **Not implemented**; not advertised                               |
 | Native voice notes, calls, live location | **Not implemented**; ordinary audio files may be media            |
 
-Provider plan, recipient, file-size, format, throughput and outbound engagement limits still apply. Local files must pass host media-root/read policy. Uploads use the host SSRF guard; no Linq bearer token goes to the upload host. Remote media must be reachable by Linq. Temporary inbound attachment URLs can expire (roughly 24–48 hours per Linq documentation): a long outage may preserve an envelope but not attachment bytes.
+Provider plan, recipient, file-size, format, throughput and outbound engagement limits still apply. Inbound attachments use the host SSRF guard, a 100 MiB per-file cap, a 30-second deadline and local staging before agent dispatch. Failed staging leaves the event pending for retry. Local files must pass host media-root/read policy. Uploads use the host SSRF guard; no Linq bearer token goes to the upload host. Remote media must be reachable by Linq. Temporary inbound attachment URLs can expire (roughly 24–48 hours per Linq documentation): a long outage may preserve an envelope but not attachment bytes.
 
 ## Delivery and security
 
@@ -110,10 +110,12 @@ Linq operates the messaging endpoint and can process content. iMessage transport
 
 `npm run check` typechecks, runs unit/HTTP fixtures, builds, and exercises the released host loader, registered runtime, SQLite queue and sender policies in independent processes. `test/integration.mjs` deliberately exits after durable ACK and verifies recovery/replay in a new process. It uses private temporary state and fixture credentials, not your Gateway.
 
+`test/gateway-integration.mjs` starts the actual Gateway with an isolated config and a deterministic model/provider fixture. It verifies signed text/photo HTTP ingress through agent dispatch, image bytes in model input, and automatic durable reply delivery, rejects unsigned requests, and checks replay and sender denial. This is synthetic pipeline proof, not real provider or handset delivery.
+
 Set `LINQ_PACKAGE_ROOT` to an installed/extracted tarball’s absolute root for `npm run test:integration` to test the artifact instead of this build directory. The harness locates version-specific host loader internals only for verification; production imports use public SDK subpaths.
 
 Tests do not establish real Linq permissions, provisioning, public webhook reachability, Apple availability, carrier delivery or live media-format support. A maintainer must run an account-backed smoke test before claiming production operation.
 
 ## License
 
-MIT. Builds on the original plugin and Dallin Romney’s setup/SDK migration work.
+MIT. Builds on the original plugin and contributions from Dallin Romney and Peter Steinberger.

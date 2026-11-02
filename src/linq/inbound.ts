@@ -3,6 +3,7 @@ import {
   type ChannelIngressMonitorLifecycle,
 } from "openclaw/plugin-sdk/channel-outbound";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/channel-core";
+import { saveRemoteMedia } from "openclaw/plugin-sdk/media-runtime";
 import type { ResolvedLinqAccount } from "./accounts.js";
 import {
   authorizeLinqSender,
@@ -182,6 +183,33 @@ export async function dispatchLinqInboundEvent(params: {
     return;
   }
   params.lifecycle?.abortSignal.throwIfAborted();
+  // URL-only facts are not staged as model attachments by the host. Download only
+  // after sender authorization, using the host's bounded, SSRF-guarded media store.
+  const stagedMedia = [];
+  for (const item of media) {
+    try {
+      const saved = await saveRemoteMedia({
+        url: item.url,
+        requireHttps: true,
+        maxBytes: 100 * 1024 * 1024,
+        timeoutMs: 30_000,
+        readIdleTimeoutMs: 10_000,
+        requestInit: { signal: params.lifecycle?.abortSignal },
+        fallbackContentType: item.mimeType,
+        subdir: "inbound",
+      });
+      stagedMedia.push({
+        path: saved.path,
+        contentType: saved.contentType ?? item.mimeType,
+      });
+    } catch {
+      // Provider attachment URLs can contain credentials; do not expose them in errors.
+      throw new Error(
+        "Linq inbound attachment could not be staged; pending event will retry",
+      );
+    }
+  }
+  params.lifecycle?.abortSignal.throwIfAborted();
   const replyTarget = "linq:chat:" + message.chat_id;
   const bodyText = text.trim() || "<media:attachment>";
   const ctxPayload = rt.inbound.buildContext({
@@ -210,7 +238,7 @@ export async function dispatchLinqInboundEvent(params: {
       commandBody: bodyText,
       bodyForAgent: bodyText,
     },
-    media: media.map((item) => ({ url: item.url, contentType: item.mimeType })),
+    media: stagedMedia,
     extra: { Service: message.service },
   });
   if (message.service === "iMessage") {

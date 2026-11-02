@@ -5,6 +5,12 @@ import {
 } from "./inbound.js";
 import { resolveLinqAccount } from "./accounts.js";
 const send = vi.hoisted(() => vi.fn(async () => ({})));
+const saveMedia = vi.hoisted(() =>
+  vi.fn(async () => ({ path: "/fixture/photo.png", contentType: "image/png" })),
+);
+vi.mock("openclaw/plugin-sdk/media-runtime", () => ({
+  saveRemoteMedia: saveMedia,
+}));
 vi.mock("./send.js", () => ({
   sendMessageLinq: send,
   markAsReadLinq: send,
@@ -53,6 +59,59 @@ function fixture(allowed = true) {
 }
 beforeEach(() => vi.clearAllMocks());
 describe("inbound binding", () => {
+  it("stages authorized attachments before dispatch and never fetches denied media", async () => {
+    const message = normalizeLinqMessageReceivedData({
+      ...data,
+      parts: [
+        {
+          type: "media",
+          url: "https://example.com/photo.png?private=secret",
+          mime_type: "image/png",
+        },
+      ],
+    })!;
+    const denied = fixture(false);
+    await dispatchLinqInboundEvent({
+      cfg,
+      account: resolveLinqAccount({ cfg }),
+      message,
+      channelRuntime: denied.rt as never,
+    });
+    expect(saveMedia).not.toHaveBeenCalled();
+    const allowed = fixture();
+    await dispatchLinqInboundEvent({
+      cfg,
+      account: resolveLinqAccount({ cfg }),
+      message,
+      channelRuntime: allowed.rt as never,
+    });
+    expect(saveMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requireHttps: true,
+        maxBytes: 100 * 1024 * 1024,
+      }),
+    );
+    expect(allowed.rt.inbound.buildContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        media: [{ path: "/fixture/photo.png", contentType: "image/png" }],
+      }),
+    );
+    saveMedia.mockRejectedValueOnce(
+      new Error("https://example.com/photo.png?private=secret") as never,
+    );
+    allowed.rt.inbound.dispatch.mockClear();
+    await expect(
+      dispatchLinqInboundEvent({
+        cfg,
+        account: resolveLinqAccount({ cfg }),
+        message,
+        channelRuntime: allowed.rt as never,
+      }),
+    ).rejects.toThrow(
+      "Linq inbound attachment could not be staged; pending event will retry",
+    );
+    expect(allowed.rt.inbound.dispatch).not.toHaveBeenCalled();
+  });
   it("normalizes current envelopes and marks unknown group status unsafe", () => {
     expect(normalizeLinqMessageReceivedData(data)).toMatchObject({
       is_group: false,
