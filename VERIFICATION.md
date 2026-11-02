@@ -5,6 +5,25 @@ package (release build `8b18b55`) with Node **26.12.1**. npm's `latest` tag
 and the upstream GitHub latest stable release both selected 2026.10.9.
 The starting repairs are `db0ad3531e4331f06ab42c2b26b8cc2d29cba324`.
 
+## Minimum supported host
+
+The minimum is **OpenClaw 2026.10.1**, independently of the 2026.10.9
+build/development target and live-test version. Both npm peer compatibility and
+`openclaw.compat.pluginApi` declare `>=2026.10.1`.
+
+The unmodified implementation typechecks on 2026.9.6, but that host rejects
+`openChannelIngressQueue` for this external plugin with `PLUGIN_TRUST_REFUSED`.
+The same trusted-only queue gate remains in the 2026.9.36 extended-stable package.
+2026.9.5 also lacks `runtime.channel.inbound.ingress`; still older hosts lack
+additional APIs. No fallback to a non-durable receive path is used.
+
+2026.10.1 is the first stable 2026.10 release and removes that legacy queue gate.
+On its published package, typecheck, all 63 tests, build, SecretRef discovery,
+durable restart/replay and sender-policy fixtures, and the actual Gateway
+text/image/model/automatic-reply fixture pass. The compiled tarball is also
+installed and checked separately on this minimum host. No phone-backed live
+verification is claimed on 2026.10.1; the handset proof below uses 2026.10.9.
+
 ## Automated evidence
 
 - Typecheck, 63 tests across 16 files, and compiled build pass.

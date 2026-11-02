@@ -4,7 +4,7 @@ An external [OpenClaw](https://github.com/openclaw/openclaw) channel using the [
 
 ## Requirements and installation
 
-Targets **OpenClaw 2026.10.9 or newer**. Development checks use the published 2026.10.9 package. Newer hosts must preserve that public plugin API. Use a Node version supported by your host.
+Requires **OpenClaw 2026.10.1 or newer**. Automated package and Gateway checks cover the minimum release; development and live handset verification use 2026.10.9. Earlier hosts either lack required runtime APIs or restrict the durable ingress queue to trusted official plugins. Use a Node version supported by your host.
 
 The package name/version is not a claim of an npm or ClawHub release. Until a maintainer publishes a reviewed release, build and inspect the package from a reviewed checkout in an isolated development environment:
 
