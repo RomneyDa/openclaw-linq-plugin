@@ -114,7 +114,7 @@ Linq operates the messaging endpoint and can process content. iMessage transport
 
 Set `LINQ_PACKAGE_ROOT` to an installed/extracted tarball’s absolute root for `npm run test:integration` to test the artifact instead of this build directory. The harness locates version-specific host loader internals only for verification; production imports use public SDK subpaths.
 
-Tests do not establish real Linq permissions, provisioning, public webhook reachability, Apple availability, carrier delivery or live media-format support. A maintainer must run an account-backed smoke test before claiming production operation.
+Tests do not establish real Linq permissions, provisioning, public webhook reachability, Apple availability, carrier delivery or live media-format support. See [VERIFICATION.md](./VERIFICATION.md) for the account-backed OpenClaw 2026.10.9 text/photo round trip, handset confirmations and remaining transport limitations.
 
 ## License
 

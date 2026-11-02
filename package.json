@@ -68,6 +68,7 @@
     "dist",
     "openclaw.plugin.json",
     "README.md",
+    "VERIFICATION.md",
     "LICENSE"
   ]
 }

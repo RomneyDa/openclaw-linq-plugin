@@ -44,20 +44,56 @@ paths to the host. Staging failures retain the event for durable retry and
 use a generic error to avoid exposing attachment URLs. The Gateway image-byte
 assertion failed before this change and passes after it.
 
-## Live evidence still required
+## Live evidence on the same released host
 
-The sandbox expired before account-backed testing on 2026.10.9. Live testing
-is on hold at the operator's request until renewed access is available.
-No subscription or tunnel was created and no live message was sent in this
-verification session. No handset delivery, incoming provider webhook, live
-automatic reply, transport selection or visible typing/read behavior is claimed.
+The restored sandbox was exercised through the installed tarball and the actual
+Gateway lifecycle on 2026-11-02. The agent used a local deterministic model
+fixture; the Linq API, signed webhooks, media downloads/uploads and phone were
+real. Model-request instrumentation recorded media types and decoded byte counts,
+not private text or image content.
 
-After renewal, confirm provisioning and existing subscriptions, create only a
-test-owned phone-scoped subscription to a route-only HTTPS proxy, verify the
-running Gateway and signature rejection, then coordinate a real text/photo
-and handset reply check. Record the provider's actual SMS/iMessage/RCS service
-separately from handset confirmation. Test text/media/quoted replies and
-presence proportionately, and remove only test-owned resources afterward.
+- A new test-owned `message.received` subscription was scoped to the provisioned
+  line and pinned to webhook version `2026-02-03`. The public HTTPS proxy exposed
+  only the exact webhook route: GET returned 405, unsigned POST returned 401,
+  and other paths returned 404. Existing subscriptions were preserved.
+- A real incoming SMS text passed signature enforcement and sender/line checks,
+  reached the agent/model, and produced an automatic reply confirmed on the
+  handset. Provider API acceptance was recorded separately from this confirmation.
+- The first phone settings had iMessage disabled. Linq's capability check returned
+  unavailable, and actual messages used SMS. The handset displayed green bubbles;
+  an explicit quoted request arrived as ordinary SMS. The early photo attempt
+  ultimately failed on the phone and never appeared in the provider chat/events.
+  Early outbound PNG requests were accepted as SMS, but no handset image arrived.
+- After the operator enabled iMessage, the capability check returned available.
+  Fresh incoming text and normal camera JPEG photos arrived as signed iMessage
+  events, were authorized, staged locally, and dispatched to the actual agent.
+- The model request contained two native image data blocks from the real camera
+  photos, decoded to 180,819 and 164,571 bytes after host processing. A first local
+  fixture counter inspected only the final user message and undercounted images;
+  examining all messages corrected this harness mistake without a plugin change.
+- Automatic iMessage replies were sent through the durable channel adapter.
+  The provider recorded delivered/read status for replies. The operator confirmed
+  receipt of the automatic photo acknowledgment as an iMessage,
+  the outbound blue/white PNG on the handset, visible typing, and a read receipt
+  on the incoming image. Read/typing behavior remains best-effort.
+- An explicit iMessage quoted-reply request retained the provider message-id
+  reference and reached delivered/read status. The operator confirmed it appeared
+  linked to the earlier text on the handset.
+- A synthetic, freshly signed replay of the completed real SMS event was accepted
+  before and after a full Gateway restart, with no additional model call or send.
+  Pending-event crash recovery and adverse sender policies remain automated host
+  fixture evidence, rather than disruptive phone tests.
 
-Earlier API acceptance and synthetic tests from older hosts are background,
-not current-release live proof. A draft PR must remain pending this live gate.
+## Limits and cleanup
+
+This proves channel transport/routing and media input with a deterministic model,
+not live-model reasoning or visual understanding. RCS was unavailable in the
+capability check and was not exercised. SMS/MMS image delivery was not established;
+quoted threading, visible typing and read receipts were established only where
+supported by iMessage. No groups or other unsupported features were tested.
+
+Only the approved phone was targeted. The test-owned subscription was deleted and
+both pre-existing subscriptions were verified present. The test tunnel, proxy,
+model fixture and isolated Gateway were stopped after handset confirmation.
+Normal Gateway configuration was not changed. No npm/ClawHub release or merge is
+part of this verification.
